@@ -34,6 +34,7 @@ Designed to be minimal, fast, and invisible.
 ## 📦 Requirements
 
 - **Velocity** 3.3.0+
+- **WaterFall, BungeeCord** 1.16+
 - **Java** 17+
 
 ---
