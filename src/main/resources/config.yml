@@ -1,0 +1,13 @@
+branding:
+  enabled: true
+  text: "&5Null&dBrand"
+
+motd:
+  enabled: true
+  lines:
+    - "&5Line 1"
+    - "&dLine 2"
+  hover:
+    enabled: false
+    lines:
+      - "&7Welcome to &5Null&dBrand"

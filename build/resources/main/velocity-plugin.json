@@ -1,0 +1,8 @@
+{
+  "id": "nullbrand",
+  "name": "NullBrand",
+  "version": "1.0.0",
+  "main": "si.terona.nullbrand.NullBrand",
+  "description": "A simple yet lightweight Motd and F3 Branding plugin for Waterfall, BungeeCord and Velocity.",
+  "authors": ["Terona Studios"]
+}
