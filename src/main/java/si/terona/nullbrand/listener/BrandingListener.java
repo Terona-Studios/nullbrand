@@ -74,4 +74,33 @@ public final class BrandingListener {
             player.sendData(tag, config.getBrandingPayload());
         }
     }
+
+    public static final class Spigot implements org.bukkit.event.Listener {
+
+        private final org.bukkit.plugin.Plugin plugin;
+        private final ConfigUtil config;
+
+        public Spigot(org.bukkit.plugin.Plugin plugin, ConfigUtil config) {
+            this.plugin = plugin;
+            this.config = config;
+        }
+
+        @org.bukkit.event.EventHandler
+        public void onJoin(org.bukkit.event.player.PlayerJoinEvent event) {
+            if (!config.isBrandingEnabled()) {
+                return;
+            }
+            sendBrand(event.getPlayer());
+        }
+
+        private void sendBrand(org.bukkit.entity.Player player) {
+            byte[] payload = config.getBrandingPayload();
+            player.sendPluginMessage(plugin, BRAND_MODERN, payload);
+            try {
+                player.sendPluginMessage(plugin, BRAND_LEGACY, payload);
+            } catch (IllegalArgumentException ignored) {
+                // Legacy channel not supported on this version
+            }
+        }
+    }
 }

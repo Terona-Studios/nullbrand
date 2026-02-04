@@ -98,4 +98,21 @@ public final class MotdListener {
             }
         }
     }
+
+    public static final class Spigot implements org.bukkit.event.Listener {
+
+        private final ConfigUtil config;
+
+        public Spigot(ConfigUtil config) {
+            this.config = config;
+        }
+
+        @org.bukkit.event.EventHandler
+        public void onProxyPing(org.bukkit.event.server.ServerListPingEvent event) {
+            if (!config.isMotdEnabled()) {
+                return;
+            }
+            event.setMotd(config.getMotdJoinedColored());
+        }
+    }
 }

@@ -60,4 +60,24 @@ public final class ReloadCommand {
             sender.sendMessage(new net.md_5.bungee.api.chat.TextComponent(ColorUtil.translate(RELOADED)));
         }
     }
+
+    public static final class Spigot implements org.bukkit.command.CommandExecutor {
+
+        private final NullBrand.Spigot plugin;
+
+        public Spigot(NullBrand.Spigot plugin) {
+            this.plugin = plugin;
+        }
+
+        @Override
+        public boolean onCommand(org.bukkit.command.CommandSender sender, org.bukkit.command.Command command, String label, String[] args) {
+            if (!sender.hasPermission("nullbrand.reload")) {
+                sender.sendMessage(ColorUtil.translate(NO_PERMISSION));
+                return true;
+            }
+            plugin.reload();
+            sender.sendMessage(ColorUtil.translate(RELOADED));
+            return true;
+        }
+    }
 }

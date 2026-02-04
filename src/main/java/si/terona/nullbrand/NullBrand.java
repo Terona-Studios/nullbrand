@@ -87,4 +87,36 @@ public final class NullBrand {
             return config;
         }
     }
+
+    public static final class Spigot extends org.bukkit.plugin.java.JavaPlugin {
+
+        private ConfigUtil config;
+
+        @Override
+        public void onEnable() {
+            config = new ConfigUtil(getDataFolder().toPath());
+            reload();
+            getServer().getPluginManager().registerEvents(new MotdListener.Spigot(config), this);
+            getServer().getMessenger().registerOutgoingPluginChannel(this, "minecraft:brand");
+            try {
+                getServer().getMessenger().registerOutgoingPluginChannel(this, "MC|Brand");
+            } catch (IllegalArgumentException ignored) {
+                // Legacy channel not supported on this version
+            }
+            getServer().getPluginManager().registerEvents(new BrandingListener.Spigot(this, config), this);
+            getCommand("nullbrand").setExecutor(new ReloadCommand.Spigot(this));
+        }
+
+        public void reload() {
+            try {
+                config.load(getClass().getClassLoader());
+            } catch (IOException e) {
+                getLogger().severe("Failed to load config.yml: " + e.getMessage());
+            }
+        }
+
+        public ConfigUtil config() {
+            return config;
+        }
+    }
 }

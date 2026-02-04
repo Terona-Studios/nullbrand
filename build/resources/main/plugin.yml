@@ -1,5 +1,11 @@
 name: NullBrand
-main: si.terona.nullbrand.NullBrand$Bungee
+main: si.terona.nullbrand.NullBrand$Spigot
 version: 1.0.0
 author: Terona Studios
-description: A simple yet lightweight Motd and F3 Branding plugin for Waterfall, BungeeCord and Velocity.
+description: A simple yet lightweight Motd and F3 Branding plugin for Waterfall, BungeeCord, Velocity and Spigot/Paper.
+api-version: '1.21'
+commands:
+  nullbrand:
+    description: Reload the plugin
+    aliases: [nb]
+    permission: nullbrand.reload
