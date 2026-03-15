@@ -96,6 +96,9 @@ public final class NullBrand {
         public void onEnable() {
             config = new ConfigUtil(getDataFolder().toPath());
             reload();
+            if (config.isDebugEnabled()) {
+                getLogger().warning("MOTD hover is disabled on this server software. Use Velocity or BungeeCord for hover support.");
+            }
             getServer().getPluginManager().registerEvents(new MotdListener.Spigot(config), this);
             getServer().getMessenger().registerOutgoingPluginChannel(this, "minecraft:brand");
             try {

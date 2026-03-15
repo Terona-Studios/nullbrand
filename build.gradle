@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'si.terona'
-version = '1.0.1'
+version = '1.0.2'
 
 repositories {
     mavenCentral()
@@ -12,6 +12,9 @@ repositories {
     }
     maven {
         url = 'https://repo.md-5.net/content/repositories/snapshots/'
+    }
+    maven {
+        url = 'https://repo.dmulloy2.net/nexus/repository/public/'
     }
 }
 

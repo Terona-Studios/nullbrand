@@ -1,13 +1,45 @@
+# ---------------------------------------------------
+# NullBrand Configuration
+# A lightweight branding and MOTD customization plugin
+# ---------------------------------------------------
+
+# Enables debug logging.
+debug: false
+
 branding:
+  # Enables overriding the server brand shown in the F3 debug screen.
+  # If disabled, the server will display its default brand (Paper, Spigot, etc.).
   enabled: true
+
+  # Text displayed as the server brand in the F3 debug screen.
+  # Supports Minecraft color codes using "&".
   text: "&5Null&dBrand"
 
+# ---------------------------------------------------
+
 motd:
+  # Enables the custom MOTD shown in the multiplayer server list.
+  # If disabled, the server will use the default MOTD from server.properties.
   enabled: true
+
+  # Lines displayed as the server MOTD in the multiplayer list.
+  # Usually two lines are supported by Minecraft clients.
+  # Supports "&" color codes.
   lines:
     - "&5Line 1"
     - "&dLine 2"
+
+# ---------------------------------------------------
+
   hover:
+    # Enables hover text when players move their cursor over the player count.
+    # This feature works through the player sample list in the server ping response.
+
+    # NOTE: 𝗧𝗵𝗶𝘀 𝗳𝗲𝗮𝘁𝘂𝗿𝗲 𝘄𝗶𝗹𝗹 𝗻𝗼𝘁 𝘄𝗼𝗿𝗸 𝗼𝗻: 𝗣𝗮𝗽𝗲𝗿, 𝗣𝘂𝗿𝗽𝘂𝗿, 𝗦𝗽𝗶𝗴𝗼𝘁, 𝗕𝘂𝗸𝗸𝗶𝘁 𝗮𝗻𝗱 𝗙𝗼𝗹𝗶𝗮
     enabled: false
+
+    # Lines shown in the hover tooltip.
+    # Each line will appear as a fake player entry in the hover list.
+    # Supports "&" color codes.
     lines:
       - "&7Welcome to &5Null&dBrand"

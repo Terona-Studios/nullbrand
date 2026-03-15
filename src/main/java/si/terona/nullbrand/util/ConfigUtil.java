@@ -13,7 +13,8 @@ import java.util.List;
 public final class ConfigUtil {
 
     private final Path dataDirectory;
-    private final Path configPath;
+    private volatile Path configPath;
+    private volatile boolean debugEnabled = false;
     private volatile boolean brandingEnabled = true;
     private volatile String brandingTextColored = "NullBrand";
     private volatile byte[] brandingPayload = new byte[0];
@@ -37,6 +38,10 @@ public final class ConfigUtil {
         }
         List<String> lines = Arrays.asList(content.split("\\R", -1));
         parse(lines);
+    }
+
+    public boolean isDebugEnabled() {
+        return debugEnabled;
     }
 
     public boolean isBrandingEnabled() {
@@ -88,23 +93,44 @@ public final class ConfigUtil {
 
     private void writeDefault() throws IOException {
         String defaultConfig =
-                "branding:\n"
-                        + "  enabled: true\n"
-                        + "  text: \"<#6affff>NullBrand</#6affff> &7| &fInvisible Proxy\"\n"
+                "# Enables debug logging in the console.\n"
+                        + "# When enabled, NullBrand will print additional diagnostic information.\n"
+                        + "# Default: false\n"
+                        + "debug: false\n"
                         + "\n"
-                        + "motd:\n"
+                        + "# Enables the F3 debug branding override\n"
+                        + "branding:\n"
                         + "  enabled: true\n"
+                        + "\n"
+                        + "  # Text shown in the F3 debug screen\n"
+                        + "  text: \"&5Null&dBrand\"\n"
+                        + "\n"
+                        + "# Controls the server MOTD\n"
+                        + "motd:\n"
+                        + "  # Enable custom MOTD\n"
+                        + "  enabled: true\n"
+                        + "\n"
+                        + "  # Lines displayed in the server list\n"
                         + "  lines:\n"
-                        + "    - \"<#6affff>NullBrand</#6affff>\"\n"
-                        + "    - \"&7Secure \u2022 Fast \u2022 Invisible\"\n"
+                        + "    - \"&5Line 1\"\n"
+                        + "    - \"&dLine 2\"\n"
+                        + "\n"
+                        + "  # NOTE:\n"
+                        + "  # Hover text only works when NullBrand runs on a proxy such as Velocity, BungeeCord, or Waterfall.\n"
+                        + "  # Minecraft server software based on Bukkit (Paper, Spigot, Folia, Purpur, Bukkit) does not allow formatted hover text in the server list due to protocol limitations.\n"
+                        + "  # If you want hover text with colors and unlimited length, run NullBrand on a proxy instead.\n"
                         + "  hover:\n"
+                        + "    # Enables hover text when players hover the player count\n"
                         + "    enabled: false\n"
+                        + "\n"
+                        + "    # Lines shown in the hover tooltip\n"
                         + "    lines:\n"
-                        + "      - \"&7Welcome to &fNullBrand\"\n";
+                        + "      - \"&7Welcome to &5Null&dBrand\"\n";
         Files.writeString(configPath, defaultConfig, StandardCharsets.UTF_8);
     }
 
     private void parse(List<String> lines) {
+        boolean debugEnabled = false;
         boolean brandingEnabled = true;
         String brandingText = "NullBrand";
         boolean motdEnabled = true;
@@ -124,6 +150,15 @@ public final class ConfigUtil {
                 continue;
             }
             int indent = countLeadingSpaces(raw);
+            if (indent == 0 && trimmed.contains(":")) {
+                int split = trimmed.indexOf(':');
+                String key = trimmed.substring(0, split).trim().toLowerCase();
+                String value = trimmed.substring(split + 1).trim();
+                value = unquote(value);
+                if (key.equals("debug")) {
+                    debugEnabled = parseBoolean(value, debugEnabled);
+                }
+            }
             if (indent == 0 && trimmed.endsWith(":")) {
                 String section = trimmed.substring(0, trimmed.length() - 1).toLowerCase();
                 inBranding = section.equals("branding");
@@ -200,8 +235,6 @@ public final class ConfigUtil {
         if (motdLines.isEmpty()) {
             if (motdText != null) {
                 motdLines.add(motdText);
-            } else {
-                motdLines.add("");
             }
         }
         if (hoverEnabled && hoverLines.isEmpty()) {
@@ -218,7 +251,8 @@ public final class ConfigUtil {
         }
         String motdJoinedColored = String.join("\n", motdLinesColored);
         String brandingColored = ColorUtil.translate(brandingText);
-
+        
+        this.debugEnabled = debugEnabled;
         this.brandingEnabled = brandingEnabled;
         this.brandingTextColored = brandingColored;
         this.brandingPayload = createBrandPayload(brandingColored);
