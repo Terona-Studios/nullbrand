@@ -6,22 +6,18 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
-import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
-import com.velocitypowered.api.proxy.messages.LegacyChannelIdentifier;
-import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import java.io.IOException;
 import java.nio.file.Path;
 import org.slf4j.Logger;
 import si.terona.nullbrand.command.ReloadCommand;
-import si.terona.nullbrand.listener.BrandingListener;
 import si.terona.nullbrand.listener.MotdListener;
 import si.terona.nullbrand.util.ConfigUtil;
 
 @Plugin(
         id = "nullbrand",
         name = "NullBrand",
-        version = "1.0.0",
-        description = "Ultra-lightweight proxy branding and MOTD plugin",
+        version = "1.0.2",
+        description = "Ultra-lightweight MOTD, hover, and favicon plugin",
         authors = {"Terona Studios"}
 )
 public final class NullBrand {
@@ -29,8 +25,6 @@ public final class NullBrand {
     private final ProxyServer proxy;
     private final Logger logger;
     private final Path dataDirectory;
-    private final ChannelIdentifier brandModern = MinecraftChannelIdentifier.create("minecraft", "brand");
-    private final ChannelIdentifier brandLegacy = new LegacyChannelIdentifier("MC|Brand");
     private ConfigUtil config;
 
     @Inject
@@ -44,9 +38,10 @@ public final class NullBrand {
     public void onProxyInitialization(ProxyInitializeEvent event) {
         this.config = new ConfigUtil(dataDirectory);
         reload();
-        proxy.getChannelRegistrar().register(brandModern, brandLegacy);
+        if (config.isDebugEnabled()) {
+            logger.info("Detected platform: Velocity");
+        }
         proxy.getEventManager().register(this, new MotdListener.Velocity(config));
-        proxy.getEventManager().register(this, new BrandingListener.Velocity(config, brandModern, brandLegacy));
         proxy.getCommandManager().register("nullbrand", new ReloadCommand.Velocity(this), "nb");
     }
 
@@ -70,8 +65,10 @@ public final class NullBrand {
         public void onEnable() {
             config = new ConfigUtil(getDataFolder().toPath());
             reload();
+            if (config.isDebugEnabled()) {
+                getLogger().info("Detected platform: BungeeCord/Waterfall");
+            }
             getProxy().getPluginManager().registerListener(this, new MotdListener.Bungee(config));
-            getProxy().getPluginManager().registerListener(this, new BrandingListener.Bungee(config));
             getProxy().getPluginManager().registerCommand(this, new ReloadCommand.Bungee(this));
         }
 
@@ -97,16 +94,9 @@ public final class NullBrand {
             config = new ConfigUtil(getDataFolder().toPath());
             reload();
             if (config.isDebugEnabled()) {
-                getLogger().warning("MOTD hover is disabled on this server software. Use Velocity or BungeeCord for hover support.");
+                getLogger().info("Detected platform: Bukkit/Spigot/Paper");
             }
             getServer().getPluginManager().registerEvents(new MotdListener.Spigot(config), this);
-            getServer().getMessenger().registerOutgoingPluginChannel(this, "minecraft:brand");
-            try {
-                getServer().getMessenger().registerOutgoingPluginChannel(this, "MC|Brand");
-            } catch (IllegalArgumentException ignored) {
-                // Legacy channel not supported on this version
-            }
-            getServer().getPluginManager().registerEvents(new BrandingListener.Spigot(this, config), this);
             getCommand("nullbrand").setExecutor(new ReloadCommand.Spigot(this));
         }
 

@@ -9,27 +9,37 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import si.terona.nullbrand.model.MotdProfile;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import javax.imageio.ImageIO;
 
 public final class ConfigUtil {
 
     private final Path dataDirectory;
+    private final Path faviconDirectory;
     private volatile Path configPath;
     private volatile boolean debugEnabled = false;
-    private volatile boolean brandingEnabled = true;
-    private volatile String brandingTextColored = "NullBrand";
-    private volatile byte[] brandingPayload = new byte[0];
     private volatile boolean motdEnabled = true;
-    private volatile List<String> motdLinesColored = List.of("NullBrand");
-    private volatile String motdJoinedColored = "NullBrand";
-    private volatile boolean hoverEnabled = false;
-    private volatile List<String> hoverLinesColored = List.of();
+    private volatile String activeProfileName = "default";
+    private volatile Map<String, MotdProfile> profiles = new HashMap<>();
+    private volatile String faviconName = null;
+    private volatile String cachedFaviconBase64 = null;
+    private volatile Object cachedFaviconVelocity = null;
+    private volatile Object cachedFaviconBungee = null;
+    private volatile Object cachedFaviconSpigot = null;
 
     public ConfigUtil(Path dataDirectory) {
         this.dataDirectory = dataDirectory;
         this.configPath = dataDirectory.resolve("config.yml");
+        this.faviconDirectory = dataDirectory.resolve("favicons");
     }
 
     public synchronized void load(ClassLoader classLoader) throws IOException {
+        ensureDirectories();
         ensureDefault(classLoader);
         byte[] bytes = Files.readAllBytes(configPath);
         String content = new String(bytes, StandardCharsets.UTF_8);
@@ -38,42 +48,131 @@ public final class ConfigUtil {
         }
         List<String> lines = Arrays.asList(content.split("\\R", -1));
         parse(lines);
+        loadFavicon();
+    }
+
+    private void ensureDirectories() throws IOException {
+        if (!Files.exists(dataDirectory)) {
+            Files.createDirectories(dataDirectory);
+        }
+        if (!Files.exists(faviconDirectory)) {
+            Files.createDirectories(faviconDirectory);
+        }
+    }
+
+    private void loadFavicon() {
+        if (faviconName == null || faviconName.isEmpty()) {
+            cachedFaviconBase64 = null;
+            cachedFaviconVelocity = null;
+            cachedFaviconBungee = null;
+            cachedFaviconSpigot = null;
+            return;
+        }
+
+        Path faviconPath = faviconDirectory.resolve(faviconName);
+        if (!Files.exists(faviconPath)) {
+            cachedFaviconBase64 = null;
+            cachedFaviconVelocity = null;
+            cachedFaviconBungee = null;
+            cachedFaviconSpigot = null;
+            return;
+        }
+
+        try {
+            BufferedImage image = ImageIO.read(faviconPath.toFile());
+            if (image == null) {
+                if (debugEnabled) {
+                    System.out.println("[NullBrand] Failed to load favicon (invalid image): " + faviconName);
+                }
+                return;
+            }
+
+            if (image.getWidth() != 64 || image.getHeight() != 64) {
+                if (debugEnabled) {
+                    System.out.println("[NullBrand] Favicon must be 64x64! Current: " + image.getWidth() + "x" + image.getHeight());
+                }
+                return;
+            }
+
+            // Proxy Servers (Velocity, BungeeCord, Waterfall) require Base64
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", outputStream);
+            byte[] imageBytes = outputStream.toByteArray();
+            String base64 = Base64.getEncoder().encodeToString(imageBytes);
+            this.cachedFaviconBase64 = "data:image/png;base64," + base64;
+
+            if (debugEnabled) {
+                System.out.println("[NullBrand] Loaded favicon: " + faviconName);
+            }
+
+            // Platform specific objects
+            try {
+                if (isClassAvailable("com.velocitypowered.api.util.Favicon")) {
+                    this.cachedFaviconVelocity = com.velocitypowered.api.util.Favicon.create(image);
+                }
+            } catch (Throwable ignored) {}
+
+            try {
+                if (isClassAvailable("net.md_5.bungee.api.Favicon")) {
+                    this.cachedFaviconBungee = net.md_5.bungee.api.Favicon.create(this.cachedFaviconBase64);
+                }
+            } catch (Throwable ignored) {}
+
+            try {
+                if (isClassAvailable("org.bukkit.Bukkit")) {
+                    this.cachedFaviconSpigot = org.bukkit.Bukkit.loadServerIcon(image);
+                }
+            } catch (Throwable ignored) {}
+
+        } catch (Throwable e) {
+            if (debugEnabled) {
+                System.out.println("[NullBrand] Error loading favicon: " + e.getMessage());
+            }
+        }
+    }
+
+    private boolean isClassAvailable(String className) {
+        try {
+            Class.forName(className);
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    public MotdProfile getActiveProfile() {
+        MotdProfile profile = profiles.get(activeProfileName);
+        if (profile == null) {
+            if (debugEnabled && !activeProfileName.equalsIgnoreCase("global")) {
+                System.out.println("[NullBrand] Profile '" + activeProfileName + "' not found, falling back to 'global'");
+            }
+            return profiles.getOrDefault("global", new MotdProfile(List.of("&5Null&dBrand"), List.of(), false));
+        }
+        return profile;
+    }
+
+    public String getFaviconBase64() {
+        return cachedFaviconBase64;
+    }
+
+    public Object getCachedFaviconVelocity() {
+        return cachedFaviconVelocity;
+    }
+
+    public Object getCachedFaviconBungee() {
+        return cachedFaviconBungee;
+    }
+
+    public Object getCachedFaviconSpigot() {
+        return cachedFaviconSpigot;
     }
 
     public boolean isDebugEnabled() {
         return debugEnabled;
     }
 
-    public boolean isBrandingEnabled() {
-        return brandingEnabled;
-    }
-
-    public String getBrandingTextColored() {
-        return brandingTextColored;
-    }
-
-    public byte[] getBrandingPayload() {
-        return brandingPayload;
-    }
-
     public boolean isMotdEnabled() {
         return motdEnabled;
-    }
-
-    public List<String> getMotdLinesColored() {
-        return motdLinesColored;
-    }
-
-    public String getMotdJoinedColored() {
-        return motdJoinedColored;
-    }
-
-    public boolean isHoverEnabled() {
-        return hoverEnabled;
-    }
-
-    public List<String> getHoverLinesColored() {
-        return hoverLinesColored;
     }
 
     private void ensureDefault(ClassLoader classLoader) throws IOException {
@@ -93,56 +192,84 @@ public final class ConfigUtil {
 
     private void writeDefault() throws IOException {
         String defaultConfig =
-                "# Enables debug logging in the console.\n"
-                        + "# When enabled, NullBrand will print additional diagnostic information.\n"
-                        + "# Default: false\n"
+                "# ---------------------------------------------------\n"
+                        + "# NullBrand Configuration\n"
+                        + "# Lightweight MOTD system\n"
+                        + "# ---------------------------------------------------\n"
+                        + "\n"
+                        + "# Enables debug logging\n"
                         + "debug: false\n"
                         + "\n"
-                        + "# Enables the F3 debug branding override\n"
-                        + "branding:\n"
-                        + "  enabled: true\n"
                         + "\n"
-                        + "  # Text shown in the F3 debug screen\n"
-                        + "  text: \"&5Null&dBrand\"\n"
-                        + "\n"
-                        + "# Controls the server MOTD\n"
+                        + "# ---------------------------------------------------\n"
+                        + "# MOTD SETTINGS\n"
+                        + "# ---------------------------------------------------\n"
                         + "motd:\n"
-                        + "  # Enable custom MOTD\n"
+                        + "\n"
+                        + "  # Enable MOTD control\n"
                         + "  enabled: true\n"
                         + "\n"
-                        + "  # Lines displayed in the server list\n"
-                        + "  lines:\n"
-                        + "    - \"&5Line 1\"\n"
-                        + "    - \"&dLine 2\"\n"
+                        + "  # Active profile\n"
+                        + "  profile: \"default\"\n"
                         + "\n"
-                        + "  # NOTE:\n"
-                        + "  # Hover text only works when NullBrand runs on a proxy such as Velocity, BungeeCord, or Waterfall.\n"
-                        + "  # Minecraft server software based on Bukkit (Paper, Spigot, Folia, Purpur, Bukkit) does not allow formatted hover text in the server list due to protocol limitations.\n"
-                        + "  # If you want hover text with colors and unlimited length, run NullBrand on a proxy instead.\n"
-                        + "  hover:\n"
-                        + "    # Enables hover text when players hover the player count\n"
-                        + "    enabled: false\n"
+                        + "  # Favicon file inside /plugins/NullBrand/favicons/\n"
+                        + "  favicon: \"logo.png\"\n"
                         + "\n"
-                        + "    # Lines shown in the hover tooltip\n"
+                        + "\n"
+                        + "\n"
+                        + "# ---------------------------------------------------\n"
+                        + "# MOTD PROFILES\n"
+                        + "# ---------------------------------------------------\n"
+                        + "# NOTE: Hover (Works on Proxy Only)\n"
+                        + "\n"
+                        + "profiles:\n"
+                        + "\n"
+                        + "  # Global fallback profile\n"
+                        + "  global:\n"
                         + "    lines:\n"
-                        + "      - \"&7Welcome to &5Null&dBrand\"\n";
+                        + "      - \"&7Welcome to our server\"\n"
+                        + "      - \"&fHave fun!\"\n"
+                        + "\n"
+                        + "  # Default server MOTD\n"
+                        + "  default:\n"
+                        + "    lines:\n"
+                        + "      - \"&5Null&dBrand\"\n"
+                        + "      - \"&7This is line 2\"\n"
+                        + "    hover:\n"
+                        + "      enabled: false\n"
+                        + "      lines:\n"
+                        + "        - \"&7Welcome to &5Null&dBrand\"\n"
+                        + "        - \"&7Running powerful infrastructure\"\n"
+                        + "\n"
+                        + "  # Example event profile\n"
+                        + "  event:\n"
+                        + "    lines:\n"
+                        + "      - \"&6Special Event Live!\"\n"
+                        + "      - \"&eJoin today!\"\n"
+                        + "    hover:\n"
+                        + "      enabled: true\n"
+                        + "      lines:\n"
+                        + "        - \"&6Limited time event\"\n"
+                        + "        - \"&eDon't miss it!\"\n";
         Files.writeString(configPath, defaultConfig, StandardCharsets.UTF_8);
     }
 
     private void parse(List<String> lines) {
         boolean debugEnabled = false;
-        boolean brandingEnabled = true;
-        String brandingText = "NullBrand";
         boolean motdEnabled = true;
-        String motdText = null;
-        List<String> motdLines = new ArrayList<>();
-        boolean hoverEnabled = false;
-        List<String> hoverLines = new ArrayList<>();
-        boolean inBranding = false;
+        String activeProfile = "default";
+        String favicon = "";
+
+        Map<String, List<String>> profileLines = new HashMap<>();
+        Map<String, List<String>> profileHoverLines = new HashMap<>();
+        Map<String, Boolean> profileHoverEnabled = new HashMap<>();
+
+        String currentProfile = null;
         boolean inMotd = false;
-        boolean inHover = false;
-        boolean readingMotdLines = false;
-        boolean readingHoverLines = false;
+        boolean inProfiles = false;
+        boolean inProfileHover = false;
+        boolean readingProfileLines = false;
+        boolean readingProfileHoverLines = false;
 
         for (String raw : lines) {
             String trimmed = raw.trim();
@@ -150,117 +277,129 @@ public final class ConfigUtil {
                 continue;
             }
             int indent = countLeadingSpaces(raw);
-            if (indent == 0 && trimmed.contains(":")) {
-                int split = trimmed.indexOf(':');
-                String key = trimmed.substring(0, split).trim().toLowerCase();
-                String value = trimmed.substring(split + 1).trim();
-                value = unquote(value);
-                if (key.equals("debug")) {
-                    debugEnabled = parseBoolean(value, debugEnabled);
+
+            if (indent == 0) {
+                if (trimmed.contains(":")) {
+                    int split = trimmed.indexOf(':');
+                    String key = trimmed.substring(0, split).trim().toLowerCase();
+                    String value = unquote(trimmed.substring(split + 1).trim());
+                    if (key.equals("debug")) {
+                        debugEnabled = parseBoolean(value, debugEnabled);
+                    }
                 }
-            }
-            if (indent == 0 && trimmed.endsWith(":")) {
-                String section = trimmed.substring(0, trimmed.length() - 1).toLowerCase();
-                inBranding = section.equals("branding");
-                inMotd = section.equals("motd");
-                inHover = false;
-                readingMotdLines = false;
-                readingHoverLines = false;
-                continue;
-            }
-            if (inMotd && indent == 2 && trimmed.endsWith(":")) {
-                String key = trimmed.substring(0, trimmed.length() - 1).trim().toLowerCase();
-                if (key.equals("hover")) {
-                    inHover = true;
-                    readingMotdLines = false;
-                    readingHoverLines = false;
+                if (trimmed.endsWith(":")) {
+                    String section = trimmed.substring(0, trimmed.length() - 1).toLowerCase();
+                    inMotd = section.equals("motd");
+                    inProfiles = section.equals("profiles");
+                    currentProfile = null;
                     continue;
                 }
             }
-            if (inMotd && inHover && indent == 4 && trimmed.contains(":")) {
+
+            if (inMotd && indent == 2 && trimmed.contains(":")) {
                 int split = trimmed.indexOf(':');
                 String key = trimmed.substring(0, split).trim().toLowerCase();
-                String value = trimmed.substring(split + 1).trim();
-                value = unquote(value);
-                if (key.equals("enabled")) {
-                    hoverEnabled = parseBoolean(value, hoverEnabled);
-                } else if (key.equals("lines")) {
-                    readingHoverLines = true;
-                    hoverLines.clear();
-                } else {
-                    readingHoverLines = false;
+                String value = unquote(trimmed.substring(split + 1).trim());
+                if (key.equals("enabled")) motdEnabled = parseBoolean(value, motdEnabled);
+                else if (key.equals("profile")) activeProfile = value;
+                else if (key.equals("favicon")) favicon = value;
+                continue;
+            }
+
+            if (inProfiles) {
+                if (indent == 2 && trimmed.endsWith(":")) {
+                    currentProfile = trimmed.substring(0, trimmed.length() - 1).trim();
+                    profileLines.put(currentProfile, new ArrayList<>());
+                    profileHoverLines.put(currentProfile, new ArrayList<>());
+                    profileHoverEnabled.put(currentProfile, false);
+                    readingProfileLines = false;
+                    inProfileHover = false;
+                    readingProfileHoverLines = false;
+                    continue;
                 }
-                continue;
-            }
-            if (inMotd && inHover && readingHoverLines && trimmed.startsWith("-")) {
-                String item = trimmed.substring(1).trim();
-                hoverLines.add(unquote(item));
-                continue;
-            }
-            if (indent == 2 && trimmed.contains(":")) {
-                inHover = false;
-                int split = trimmed.indexOf(':');
-                String key = trimmed.substring(0, split).trim().toLowerCase();
-                String value = trimmed.substring(split + 1).trim();
-                value = unquote(value);
-                if (inBranding) {
-                    if (key.equals("enabled")) {
-                        brandingEnabled = parseBoolean(value, brandingEnabled);
-                    } else if (key.equals("text")) {
-                        brandingText = value;
+
+                if (currentProfile != null) {
+                    if (indent == 4) {
+                        if (trimmed.endsWith(":")) {
+                            String sub = trimmed.substring(0, trimmed.length() - 1).trim().toLowerCase();
+                            if (sub.equals("lines")) {
+                                readingProfileLines = true;
+                                readingProfileHoverLines = false;
+                                inProfileHover = false;
+                                continue;
+                            } else if (sub.equals("hover")) {
+                                inProfileHover = true;
+                                readingProfileLines = false;
+                                readingProfileHoverLines = false;
+                                continue;
+                            }
+                        }
                     }
-                } else if (inMotd) {
-                    if (key.equals("enabled")) {
-                        motdEnabled = parseBoolean(value, motdEnabled);
-                    } else if (key.equals("text")) {
-                        motdText = value;
-                    } else if (key.equals("lines")) {
-                        readingMotdLines = true;
-                        motdLines.clear();
-                    } else {
-                        readingMotdLines = false;
+
+                    if (readingProfileLines && indent >= 4 && trimmed.startsWith("-")) {
+                        profileLines.get(currentProfile).add(unquote(trimmed.substring(1).trim()));
+                        continue;
+                    }
+
+                    if (inProfileHover && indent == 6) {
+                        if (trimmed.contains(":")) {
+                            int split = trimmed.indexOf(':');
+                            String key = trimmed.substring(0, split).trim().toLowerCase();
+                            String value = unquote(trimmed.substring(split + 1).trim());
+                            if (key.equals("enabled")) {
+                                profileHoverEnabled.put(currentProfile, parseBoolean(value, false));
+                            } else if (key.equals("lines")) {
+                                readingProfileHoverLines = true;
+                            }
+                            continue;
+                        }
+                    }
+
+                    if (readingProfileHoverLines && indent >= 6 && trimmed.startsWith("-")) {
+                        profileHoverLines.get(currentProfile).add(unquote(trimmed.substring(1).trim()));
+                        continue;
                     }
                 }
-                if (!key.equals("lines")) {
-                    readingMotdLines = false;
-                }
-                continue;
-            }
-            if (inMotd && readingMotdLines && trimmed.startsWith("-")) {
-                String item = trimmed.substring(1).trim();
-                motdLines.add(unquote(item));
             }
         }
 
-        if (motdLines.isEmpty()) {
-            if (motdText != null) {
-                motdLines.add(motdText);
-            }
-        }
-        if (hoverEnabled && hoverLines.isEmpty()) {
-            hoverLines.addAll(motdLines);
+        // Processing
+        Map<String, MotdProfile> parsedProfiles = new HashMap<>();
+        for (String name : profileLines.keySet()) {
+            List<String> lines_list = profileLines.get(name);
+            List<String> hover_list = profileHoverLines.get(name);
+            boolean hover_enabled = profileHoverEnabled.getOrDefault(name, false);
+
+            List<String> coloredLines = new ArrayList<>();
+            for (String s : lines_list) coloredLines.add(ColorUtil.translate(s));
+
+            List<String> coloredHover = new ArrayList<>();
+            for (String s : hover_list) coloredHover.add(ColorUtil.translateHover(s));
+
+            parsedProfiles.put(name, new MotdProfile(coloredLines, coloredHover, hover_enabled));
         }
 
-        List<String> motdLinesColored = new ArrayList<>(motdLines.size());
-        for (String line : motdLines) {
-            motdLinesColored.add(ColorUtil.translate(line));
-        }
-        List<String> hoverLinesColored = new ArrayList<>(hoverLines.size());
-        for (String line : hoverLines) {
-            hoverLinesColored.add(ColorUtil.translate(line));
-        }
-        String motdJoinedColored = String.join("\n", motdLinesColored);
-        String brandingColored = ColorUtil.translate(brandingText);
-        
         this.debugEnabled = debugEnabled;
-        this.brandingEnabled = brandingEnabled;
-        this.brandingTextColored = brandingColored;
-        this.brandingPayload = createBrandPayload(brandingColored);
         this.motdEnabled = motdEnabled;
-        this.motdLinesColored = Collections.unmodifiableList(motdLinesColored);
-        this.motdJoinedColored = motdJoinedColored;
-        this.hoverEnabled = hoverEnabled;
-        this.hoverLinesColored = Collections.unmodifiableList(hoverLinesColored);
+        this.activeProfileName = activeProfile;
+        this.profiles = parsedProfiles;
+        this.faviconName = favicon;
+
+        if (debugEnabled) {
+            System.out.println("[NullBrand] Debug mode enabled.");
+            System.out.println("[NullBrand] Platform detected: " + detectPlatform());
+            System.out.println("[NullBrand] Loaded " + profiles.size() + " MOTD profiles.");
+            System.out.println("[NullBrand] Active profile: " + activeProfileName);
+            MotdProfile active = getActiveProfile();
+            System.out.println("[NullBrand] Hover lines count: " + active.getHoverLines().size());
+        }
+    }
+
+    private String detectPlatform() {
+        if (isClassAvailable("com.velocitypowered.api.proxy.ProxyServer")) return "Velocity";
+        if (isClassAvailable("net.md_5.bungee.api.ProxyServer")) return "BungeeCord/Waterfall";
+        if (isClassAvailable("org.bukkit.Bukkit")) return "Bukkit/Spigot/Paper";
+        return "Unknown";
     }
 
     private static int countLeadingSpaces(String line) {
@@ -294,29 +433,5 @@ public final class ConfigUtil {
             return false;
         }
         return def;
-    }
-
-    private static byte[] createBrandPayload(String brand) {
-        byte[] text = brand.getBytes(StandardCharsets.UTF_8);
-        byte[] payload = new byte[text.length + 5];
-        int len = writeVarInt(text.length, payload, 0);
-        System.arraycopy(text, 0, payload, len, text.length);
-        int finalLen = len + text.length;
-        if (finalLen == payload.length) {
-            return payload;
-        }
-        byte[] trimmed = new byte[finalLen];
-        System.arraycopy(payload, 0, trimmed, 0, finalLen);
-        return trimmed;
-    }
-
-    private static int writeVarInt(int value, byte[] out, int index) {
-        int i = value;
-        while ((i & 0xFFFFFF80) != 0) {
-            out[index++] = (byte) (i & 0x7F | 0x80);
-            i >>>= 7;
-        }
-        out[index++] = (byte) i;
-        return index;
     }
 }

@@ -34,16 +34,23 @@ public final class MotdListener {
             if (!config.isMotdEnabled()) {
                 return;
             }
-            String motd = config.getMotdJoinedColored();
+            si.terona.nullbrand.model.MotdProfile profile = config.getActiveProfile();
+            String motd = profile.getJoined();
             if (cachedComponent == null || !motd.equals(cachedMotd)) {
                 cachedMotd = motd;
                 cachedComponent = LEGACY.deserialize(motd);
             }
             com.velocitypowered.api.proxy.server.ServerPing.Builder builder =
                     event.getPing().asBuilder().description(cachedComponent);
-            if (config.isHoverEnabled()) {
-                List<String> hoverLines = config.getHoverLinesColored();
-                if (cachedSample == null || hoverLines != cachedHoverLines) {
+
+            Object favicon = config.getCachedFaviconVelocity();
+            if (favicon instanceof com.velocitypowered.api.util.Favicon) {
+                builder.favicon((com.velocitypowered.api.util.Favicon) favicon);
+            }
+
+            if (profile.isHoverEnabled()) {
+                List<String> hoverLines = profile.getHoverLines();
+                if (cachedSample == null || !hoverLines.equals(cachedHoverLines)) {
                     cachedHoverLines = hoverLines;
                     cachedSample = new ArrayList<>(hoverLines.size());
                     int index = 0;
@@ -77,12 +84,19 @@ public final class MotdListener {
             if (event.getResponse() == null) {
                 return;
             }
-            event.getResponse().setDescription(config.getMotdJoinedColored());
-            if (!config.isHoverEnabled()) {
+            si.terona.nullbrand.model.MotdProfile profile = config.getActiveProfile();
+            event.getResponse().setDescription(profile.getJoined());
+
+            Object favicon = config.getCachedFaviconBungee();
+            if (favicon instanceof net.md_5.bungee.api.Favicon) {
+                event.getResponse().setFavicon((net.md_5.bungee.api.Favicon) favicon);
+            }
+
+            if (!profile.isHoverEnabled()) {
                 return;
             }
-            List<String> hoverLines = config.getHoverLinesColored();
-            if (cachedSample == null || hoverLines != cachedHoverLines) {
+            List<String> hoverLines = profile.getHoverLines();
+            if (cachedSample == null || !hoverLines.equals(cachedHoverLines)) {
                 cachedHoverLines = hoverLines;
                 cachedSample = new net.md_5.bungee.api.ServerPing.PlayerInfo[hoverLines.size()];
                 int index = 0;
@@ -109,10 +123,25 @@ public final class MotdListener {
 
         @org.bukkit.event.EventHandler
         public void onProxyPing(org.bukkit.event.server.ServerListPingEvent event) {
+            handle(event);
+        }
+
+        @org.bukkit.event.EventHandler
+        public void onPaperProxyPing(com.destroystokyo.paper.event.server.PaperServerListPingEvent event) {
+            handle(event);
+        }
+
+        private void handle(org.bukkit.event.server.ServerListPingEvent event) {
             if (!config.isMotdEnabled()) {
                 return;
             }
-            event.setMotd(config.getMotdJoinedColored());
+            si.terona.nullbrand.model.MotdProfile profile = config.getActiveProfile();
+            event.setMotd(profile.getJoined());
+
+            Object favicon = config.getCachedFaviconSpigot();
+            if (favicon instanceof org.bukkit.util.CachedServerIcon) {
+                event.setServerIcon((org.bukkit.util.CachedServerIcon) favicon);
+            }
         }
     }
 }
